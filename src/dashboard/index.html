@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LandWatch AI — Satellite-Driven System for Detecting Unauthorized Land Development">
+    <title>LandWatch AI — Unauthorized Land Detection</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.js"></script>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- ═══ Top Navigation Bar ═══ -->
+    <nav id="navbar" class="navbar">
+        <div class="nav-brand">
+            <div class="brand-icon">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <circle cx="14" cy="14" r="12" stroke="url(#grad1)" stroke-width="2.5" fill="none"/>
+                    <path d="M8 14 L12 10 L16 14 L20 8" stroke="url(#grad1)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                    <circle cx="14" cy="14" r="3" fill="url(#grad1)" opacity="0.6"/>
+                    <defs>
+                        <linearGradient id="grad1" x1="0" y1="0" x2="28" y2="28">
+                            <stop offset="0%" stop-color="#6366f1"/>
+                            <stop offset="100%" stop-color="#06b6d4"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="brand-text">
+                <span class="brand-name">LandWatch</span>
+                <span class="brand-suffix">AI</span>
+            </div>
+        </div>
+
+        <div class="nav-stats" id="navStats">
+            <div class="stat-chip" id="statTotal">
+                <i data-lucide="alert-triangle" class="stat-icon"></i>
+                <span class="stat-value">0</span>
+                <span class="stat-label">Alerts</span>
+            </div>
+            <div class="stat-chip critical" id="statCritical">
+                <i data-lucide="zap" class="stat-icon"></i>
+                <span class="stat-value">0</span>
+                <span class="stat-label">Critical</span>
+            </div>
+            <div class="stat-chip" id="statArea">
+                <i data-lucide="scan" class="stat-icon"></i>
+                <span class="stat-value">0</span>
+                <span class="stat-label">km²</span>
+            </div>
+        </div>
+
+        <div class="nav-actions">
+            <button id="btnNewAnalysis" class="btn btn-primary" onclick="openAnalysisModal()">
+                <i data-lucide="satellite" class="btn-icon"></i>
+                New Analysis
+            </button>
+            <button id="btnRefresh" class="btn btn-ghost" onclick="refreshAlerts()">
+                <i data-lucide="refresh-cw" class="btn-icon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ═══ Main Layout ═══ -->
+    <main class="main-layout">
+        <!-- ─── Sidebar ─── -->
+        <aside id="sidebar" class="sidebar">
+            <!-- Layer Controls -->
+            <section class="sidebar-section">
+                <h3 class="section-title">
+                    <i data-lucide="layers" class="section-icon"></i>
+                    Map Layers
+                </h3>
+                <div class="layer-toggles">
+                    <label class="layer-toggle" id="toggleSatellite">
+                        <input type="checkbox" checked onchange="toggleLayer('satellite', this.checked)">
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        <span class="toggle-label">Satellite Basemap</span>
+                    </label>
+                    <label class="layer-toggle" id="toggleChange">
+                        <input type="checkbox" checked onchange="toggleLayer('change', this.checked)">
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        <span class="toggle-label">Change Detection</span>
+                    </label>
+                    <label class="layer-toggle" id="toggleSegmentation">
+                        <input type="checkbox" onchange="toggleLayer('segmentation', this.checked)">
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        <span class="toggle-label">Land Cover</span>
+                    </label>
+                    <label class="layer-toggle" id="toggleAlerts">
+                        <input type="checkbox" checked onchange="toggleLayer('alerts', this.checked)">
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        <span class="toggle-label">Alert Markers</span>
+                    </label>
+                    <label class="layer-toggle" id="toggleZoning">
+                        <input type="checkbox" onchange="toggleLayer('zoning', this.checked)">
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        <span class="toggle-label">Zoning Boundaries</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Filters -->
+            <section class="sidebar-section">
+                <h3 class="section-title">
+                    <i data-lucide="filter" class="section-icon"></i>
+                    Filters
+                </h3>
+                <div class="filter-group">
+                    <label class="filter-label">Severity</label>
+                    <div class="severity-chips">
+                        <button class="severity-chip critical active" data-level="CRITICAL" onclick="toggleSeverityFilter(this)">Critical</button>
+                        <button class="severity-chip high active" data-level="HIGH" onclick="toggleSeverityFilter(this)">High</button>
+                        <button class="severity-chip medium active" data-level="MEDIUM" onclick="toggleSeverityFilter(this)">Medium</button>
+                        <button class="severity-chip low active" data-level="LOW" onclick="toggleSeverityFilter(this)">Low</button>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Confidence Threshold</label>
+                    <div class="range-container">
+                        <input type="range" id="confidenceSlider" min="0" max="100" value="50"
+                               oninput="updateConfidence(this.value)">
+                        <span class="range-value" id="confidenceValue">50%</span>
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Zone Type</label>
+                    <select id="zoneFilter" class="select-input" onchange="filterByZone(this.value)">
+                        <option value="">All Zones</option>
+                        <option value="agricultural">Agricultural</option>
+                        <option value="protected">Protected</option>
+                        <option value="residential">Residential</option>
+                        <option value="water">Water Body</option>
+                        <option value="restricted">Restricted</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Alert List -->
+            <section class="sidebar-section alert-list-section">
+                <h3 class="section-title">
+                    <i data-lucide="bell" class="section-icon"></i>
+                    Alerts
+                    <span class="alert-count" id="alertCount">0</span>
+                </h3>
+                <div class="alert-list" id="alertList">
+                    <div class="empty-state">
+                        <i data-lucide="satellite-dish" class="empty-icon"></i>
+                        <p>No alerts yet</p>
+                        <p class="empty-sub">Run an analysis to detect changes</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Legend -->
+            <section class="sidebar-section">
+                <h3 class="section-title">
+                    <i data-lucide="palette" class="section-icon"></i>
+                    Legend
+                </h3>
+                <div class="legend-grid">
+                    <div class="legend-item">
+                        <span class="legend-swatch" style="background: #ff4500;"></span>
+                        <span>Change Detected</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch" style="background: #ff0000;"></span>
+                        <span>Building</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch" style="background: #808080;"></span>
+                        <span>Road</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch" style="background: #00c800;"></span>
+                        <span>Vegetation</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch" style="background: #0064ff;"></span>
+                        <span>Water</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch" style="background: #d2b48c;"></span>
+                        <span>Bare Soil</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch" style="background: #ffa500;"></span>
+                        <span>Construction</span>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        <!-- ─── Map Container ─── -->
+        <div class="map-wrapper">
+            <div id="map" class="map-container"></div>
+
+            <!-- Map Overlay Info -->
+            <div class="map-overlay-info" id="mapOverlayInfo">
+                <span id="cursorCoords">12.950°N, 77.600°E</span>
+                <span class="overlay-divider">|</span>
+                <span id="zoomLevel">Zoom: 12</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- ═══ Analysis Modal ═══ -->
+    <div class="modal-backdrop" id="analysisModal" onclick="closeAnalysisModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>
+                    <i data-lucide="satellite" class="modal-icon"></i>
+                    New Satellite Analysis
+                </h2>
+                <button class="btn-close" onclick="closeAnalysisModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Before Period — Start</label>
+                        <input type="date" id="t1Start" class="form-input" value="2024-01-01">
+                    </div>
+                    <div class="form-group">
+                        <label>Before Period — End</label>
+                        <input type="date" id="t1End" class="form-input" value="2024-03-31">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>After Period — Start</label>
+                        <input type="date" id="t2Start" class="form-input" value="2024-10-01">
+                    </div>
+                    <div class="form-group">
+                        <label>After Period — End</label>
+                        <input type="date" id="t2End" class="form-input" value="2024-12-31">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Max Cloud Cover</label>
+                        <div class="range-container">
+                            <input type="range" id="cloudCover" min="0" max="50" value="20"
+                                   oninput="document.getElementById('cloudValue').textContent=this.value+'%'">
+                            <span class="range-value" id="cloudValue">20%</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Confidence Threshold</label>
+                        <div class="range-container">
+                            <input type="range" id="threshold" min="10" max="90" value="50"
+                                   oninput="document.getElementById('threshValue').textContent=this.value+'%'">
+                            <span class="range-value" id="threshValue">50%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Area of Interest</label>
+                    <p class="form-hint">Draw a rectangle on the map or use default AOI</p>
+                    <div class="aoi-display" id="aoiDisplay">
+                        Default: Wardha, Maharashtra (78.50°E, 20.65°N → 78.80°E, 20.85°N)
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeAnalysisModal()">Cancel</button>
+                <button class="btn btn-primary" id="btnRunAnalysis" onclick="runAnalysis()">
+                    <i data-lucide="play" class="btn-icon"></i>
+                    Run Analysis
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Alert Detail Panel ═══ -->
+    <div class="detail-panel" id="detailPanel">
+        <div class="detail-header">
+            <h3 id="detailTitle">Alert Detail</h3>
+            <button class="btn-close" onclick="closeDetail()">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="detail-body" id="detailBody">
+            <!-- Dynamically populated -->
+        </div>
+    </div>
+
+    <!-- ═══ Toast Container ═══ -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

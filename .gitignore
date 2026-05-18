@@ -1,0 +1,40 @@
+# Environment
+.env
+*.env.*
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# GEE credentials
+*.json
+!package.json
+!package-lock.json
+
+# Data
+data/raw/
+data/processed/
+data/samples/
+*.tif
+*.tiff
+*.npy
+
+# Models
+*.pth
+*.pt
+*.onnx
+mlflow/
+mlruns/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.log
